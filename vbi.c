@@ -77,8 +77,8 @@ void run() {
             case AND: regs[a] &= regs[b]; break;
             case LOR: regs[a] |= regs[b]; break;
             case XOR: regs[a] ^= regs[b]; break;
-            case SHR: regs[a] <<= regs[b]; break;
-            case SHL: regs[a] >>= regs[b]; break;
+            case SHR: regs[a] >>= regs[b]; break;
+            case SHL: regs[a] <<= regs[b]; break;
             case MUL: regs[a] *= regs[b]; break;
             case DIV: regs[a] /= regs[b]; break;
             case MOD: regs[a] %= regs[b]; break;

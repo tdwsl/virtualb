@@ -6,6 +6,13 @@ putc
     /* sys : mov pc,r2 : nop */
     0x1fd20400;
 
+putchar(c) {
+    putc(char(&c, 3));
+    putc(char(&c, 2));
+    putc(char(&c, 1));
+    putc(char(&c, 0));
+}
+
 puts(s) {
     extrn char;
     auto i;

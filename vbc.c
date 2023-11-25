@@ -122,6 +122,14 @@ void charAhead() {
     if(!ac) ac = fgetc(fp);
 }
 
+char charAheadAhead() {
+    char c;
+    charAhead();
+    c = fgetc(fp);
+    fseek(fp, -1, SEEK_CUR);
+    return c;
+}
+
 char nextChar() {
     char c;
     if(ac) { c = ac; ac = 0; }
@@ -145,6 +153,10 @@ void parseBuf0(char *buf) {
         charAhead();
         if(strchr(ops, ac) || ac == '=')
             *(++buf) = nextChar();
+        else if((ac == '>' || ac == '<') && charAheadAhead() == ac) {
+            *(++buf) = nextChar();
+            *(++buf) = nextChar();
+        }
         break;
     case '<': case '>':
         charAhead();
@@ -354,25 +366,30 @@ int number(char *s, int *n) {
     return 1;
 }
 
-char parseChar() {
+int parseChar() {
+    int h;
     char c;
-    switch(c = nextChar()) {
-    case '*':
+    h = 0;
+    for(;;) {
         switch(c = nextChar()) {
-        case '*': c = '*'; break;
-        case '\'': c = '\''; break;
-        case 'n': c = '\n'; break;
-        case 't': c = '\t'; break;
-        case 'b': c = '\b'; break;
-        case '0': c = '\0'; break;
-        default: perr(); printf("unknown escape char %c\n", c); exit(0);
+        case '*':
+            switch(c = nextChar()) {
+            case '*': c = '*'; break;
+            case '\'': c = '\''; break;
+            case 'n': c = '\n'; break;
+            case 't': c = '\t'; break;
+            case 'b': c = '\b'; break;
+            case '0': c = '\0'; break;
+            default: perr(); printf("unknown escape char %c\n", c); exit(0);
+            }
+            break;
+        case '\'':
+            return h;
+        case '\n': case EOF: case 0:
+            perr(); printf("expected char\n"); exit(0);
         }
-        break;
-    case '\'': case '\n':
-        perr(); printf("expected char\n"); exit(0);
+        h = h<<8|c&0xff;
     }
-    expect("'");
-    return c;
 }
 
 int value(char *s) {
@@ -1321,16 +1338,17 @@ void compileStatement() {
         o = nmemory;
         nmemory += 2;
         compileStatement();
+        lookAhead();
         if(!strcmp(ahead, "else")) {
+            parseNext();
             /* bra endif */
             memory[nmemory++] = 0x01;
-            sh(o, nmemory+2-o+2);
+            sh(o, nmemory+2-o-2);
             o = nmemory;
             nmemory += 2;
             compileStatement();
         }
-        sh(o, nmemory-o+2);
-        lookAhead();
+        sh(o, nmemory-o-2);
     } else if(!strcmp(ahead, "while")) {
         parseNext();
         cons[csp++] = nmemory;
