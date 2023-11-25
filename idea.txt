@@ -1,0 +1,91 @@
+
+virtual machine targeted by a b compiler
+eventually self-hosting
+
+640x400 display, directly addressable, used as 80x25 text terminal
+register based would be cool
+instead of directly accessing files, maybe disk images? ehh
+
+was thinking of doing just mmio, but whilst it'd look cleaner,
+i think syscalls is less overhead than checking every store/load
+
+iset
+
+00 sys
+01 bra #h(signed)
+02 jsr #w
+03 ret #b<<2
+04 mov r,r
+05 ldw r,r
+06 ldh r,r
+07 ldb r,r
+08 luh r,r
+09 lub r,r
+0A stw r,r
+0B sth r,r
+0C stb r,r
+0D add r,r
+0E sub r,r
+0F adw r,r
+
+10 and r,r
+11 lor r,r
+12 xor r,r
+13 shr r,r
+14 shl r,r
+15 mul r,r
+16 div r,r
+17 mod r,r
+18 equ r,r
+19 neq r,r
+1A lte r,r
+1B gtn r,r
+1C ltn r,r
+1D gte r,r
+1E phm r,r
+1F --
+
+--
+--
+2r inc r
+3r dec r
+4r inv r
+5r not r
+6r neg r
+7r psh r
+8r pop r
+9r lwi r,#w
+Ar lhi r,#h(signed)
+Br lbi r,#b(signed)
+Cr ldr r,#b<<2
+Dr str r,#b<<2
+Er beq r,#h(signed)
+Fr bne r,#h(signed)
+
+r0-r12 general
+r13=pc
+r14=bp
+r15=sp
+
+puts:
+    psh bp
+    mov bp,sp
+    lbi r0,-1
+    adw sp,r0
+l0:
+    ldr r1,2
+    ldb r0,r1
+    inc r1
+    str r1,2
+    beq r0,l1
+    ldr r0,2
+    ldb r0,r0
+    psh r0
+    jsr putc
+    bra l0
+l1:
+    mov sp,bp
+    pop bp
+    ret 1
+
+
