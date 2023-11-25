@@ -1,5 +1,6 @@
 
 beer(n) {
+    extrn puts, putn;
     if(!n) puts("no bottles");
     else if(n == 1) puts("1 bottle");
     else { putn(n); puts(" bottles"); }
@@ -7,6 +8,7 @@ beer(n) {
 }
 
 main() {
+    extrn putchar;
     auto i;
     for(i = 99; i > 0; i--) {
         beer(i); puts(" on the wall,*n");

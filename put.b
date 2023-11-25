@@ -7,6 +7,7 @@ putc
     0x1fd20400;
 
 putchar(c) {
+    extrn char;
     putc(char(&c, 3));
     putc(char(&c, 2));
     putc(char(&c, 1));
@@ -14,7 +15,6 @@ putchar(c) {
 }
 
 puts(s) {
-    extrn char;
     auto i;
     for(i = 0; char(s, i); i++)
         putc(char(s, i));
@@ -23,6 +23,7 @@ puts(s) {
 nbuf[8];
 
 putn(n) {
+    extrn lchar;
     auto b;
     if(n < 0) { putc('-'); n = -n; }
     b = 0;

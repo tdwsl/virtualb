@@ -1650,6 +1650,8 @@ void saveFile(const char *filename) {
 
 int main(int argc, char **args) {
     int i;
+    char *outFile;
+    outFile = "a.out";
     if(argc <= 1) {
         printf("usage: %s <file1.b file2.b ...>\n", args[0]);
         return 0;
@@ -1664,12 +1666,15 @@ int main(int argc, char **args) {
     memory[nmemory++] = 0x00;
     /* sys */
     memory[nmemory++] = 0x00;
-    for(i = 1; i < argc; i++)
-        compileFile(args[i]);
+    for(i = 1; i < argc; i++) {
+        if(!strcmp(args[i], "-o")) {
+            if(++i < argc) outFile = args[i];
+        } else compileFile(args[i]);
+    }
     resolveExrefs();
     i = findGlobal("main");
     if(i == -1 || globals[i].type == EXTRN) printf("no main\n");
     else *(int*)&memory[1] = globals[i].addr+ORG;
-    saveFile("a.out");
+    saveFile(outFile);
     return 0;
 }
