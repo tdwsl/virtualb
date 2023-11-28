@@ -937,7 +937,7 @@ void storeLval(struct list *l) {
         memory[nmemory++] = (rn-1)<<4|rn;
         break;
     case DEREF:
-        compileList(l);
+        compileList(l->a);
         rn--;
         /* stw r0,rn */
         memory[nmemory++] = 0x05;
@@ -1157,7 +1157,7 @@ void compileList(struct list *l) {
         }
         break;
     case DEREF:
-        compileList(l);
+        compileList(l->a);
         rn--;
         /* ldw rn,rn */
         memory[nmemory++] = 0x05;
