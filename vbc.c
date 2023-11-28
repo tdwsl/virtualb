@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
 #define ORG 0x10000
 #define BUFSZ 200
@@ -1201,7 +1202,7 @@ void printOp2(int op) {
     case SHL: printf("<<"); break;
     case MUL: printf("*"); break;
     case DIV: printf("/"); break;
-    case MOD: printf("%"); break;
+    case MOD: printf("%%"); break;
     case EQU: printf("=="); break;
     case NEQ: printf("!="); break;
     case LTE: printf("<="); break;
@@ -1650,6 +1651,8 @@ void saveFile(const char *filename) {
 
 int main(int argc, char **args) {
     int i;
+    assert(sizeof(char) == 1);
+    assert(sizeof(int) == 4);
     char *outFile;
     outFile = "a.out";
     if(argc <= 1) {
