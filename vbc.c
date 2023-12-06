@@ -1158,7 +1158,6 @@ void compileList(struct list *l) {
         break;
     case DEREF:
         compileList(l->a);
-        rn--;
         /* ldw rn,rn */
         memory[nmemory++] = 0x05;
         memory[nmemory++] = rn<<4|rn;
