@@ -908,7 +908,7 @@ void storeLval(struct list *l) {
         exrefs[nexrefs++] = nmemory;
         nmemory += 4;
         /* stw r0,rn */
-        memory[nmemory++] = 0x05;
+        memory[nmemory++] = 0x0a;
         memory[nmemory++] = (rn-1)<<4|rn;
         break;
     case INDEX:
@@ -933,15 +933,15 @@ void storeLval(struct list *l) {
         memory[nmemory++] = 0x0f;
         memory[nmemory++] = rn<<4|rn+1;
         /* stw r0,rn */
-        memory[nmemory++] = 0x05;
+        memory[nmemory++] = 0x0a;
         memory[nmemory++] = (rn-1)<<4|rn;
         break;
     case DEREF:
         compileList(l->a);
         rn--;
         /* stw r0,rn */
-        memory[nmemory++] = 0x05;
-        memory[nmemory++] = (rn-1)<<4|rn;
+        memory[nmemory++] = 0x0a;
+        memory[nmemory++] = rn<<4|rn+1;
         break;
     default:
         perr(); printf("expected lvalue\n"); exit(0);
@@ -1126,7 +1126,7 @@ void compileList(struct list *l) {
         case GLOBAL:
             /* lwi rn,global */
             memory[nmemory++] = 0x90|rn;
-            *(int*)&memory[nmemory] = l->value;
+            *(int*)&memory[nmemory] = l->a->value;
             exrefs[nexrefs++] = nmemory;
             nmemory += 4;
             break;
@@ -1136,7 +1136,7 @@ void compileList(struct list *l) {
             memory[nmemory++] = rn<<4|0xe;
             /* lbi r1,local */
             memory[nmemory++] = 0xb0|rn+1;
-            memory[nmemory++] = -l->value-1;
+            memory[nmemory++] = -l->a->value-1;
             /* adw rn,r1 */
             memory[nmemory++] = 0x0f;
             memory[nmemory++] = rn<<4|rn+1;
@@ -1147,7 +1147,7 @@ void compileList(struct list *l) {
             memory[nmemory++] = rn<<4|0xe;
             /* lbi r1,local */
             memory[nmemory++] = 0xb0|rn+1;
-            memory[nmemory++] = nargs-l->value+1;
+            memory[nmemory++] = nargs-l->a->value+1;
             /* adw rn,r1 */
             memory[nmemory++] = 0x0f;
             memory[nmemory++] = rn<<4|rn+1;
