@@ -1288,20 +1288,125 @@ void compileExpr() {
     lookAhead();
     if(strindex(term, ahead) != -1) return;
     nlists = 0;
-    rn = 0;
     l = listExpr();
     l->parent = 0;
-    printList(l);
-    printf("\n");
+    /*printList(l);
+    printf("\n");*/
     /*for(i = 0; i < nlists; i++) {
         printList(&lists[i]);
         printf("\n");
     }*/
+    rn = 0;
     compileList(l);
 }
 
 void beforeEof(const char *s) {
     if(feof(fp)) { perr(); printf("expected %s before EOF\n", s); exit(0); }
+}
+
+void skipExpr() {
+    lookAhead();
+    if(strindex(term, ahead) != -1) return;
+    nlists = 0;
+    listExpr();
+}
+
+void skipStatement() {
+    lookAhead();
+    if(!strcmp(ahead, "for")) {
+        parseNext();
+        expect("("); skipExpr(); expect(";"); skipExpr();
+        expect(";"); skipExpr(); expect(")");
+        skipStatement();
+    } else if(!strcmp(ahead, "while")) {
+        parseNext(); expect("("); skipExpr(); expect(")"); skipStatement();
+    } else if(!strcmp(ahead, "if")) {
+        parseNext(); expect("("); skipExpr(); expect(")"); skipStatement();
+        lookAhead();
+        if(!strcmp(ahead, "else")) { parseNext(); skipStatement(); }
+    } else if(!strcmp(ahead, "do")) {
+        parseNext(); skipStatement();
+        expect("while"); expect("("); skipExpr(); expect(")"); expect(";");
+    } else if(!strcmp(ahead, "break")) {
+        parseNext(); expect(";");
+    } else if(!strcmp(ahead, "continue")) {
+        parseNext(); expect(";");
+    } else if(!strcmp(ahead, "return")) {
+        parseNext(); skipExpr(); expect(";");
+    } else if(!strcmp(ahead, "goto")) {
+        parseNext(); parseNext(); expect(";");
+    } else if(!strcmp(ahead, "case")) {
+        parseNext(); evalExpr(); expect(":");
+    } else if(!strcmp(ahead, "default")) {
+        parseNext(); expect(":");
+    } else if(!strcmp(ahead, "switch")) {
+        parseNext(); expect("("); skipExpr(); expect(")"); skipStatement();
+    } else if(!strcmp(ahead, "{")) {
+        parseNext(); for(;;) { lookAhead(); if(!strcmp(ahead, "}")) break;
+        skipStatement(); } parseNext();
+    } else { skipExpr(); expect(";"); }
+}
+
+void compileStatement();
+
+void compileSwitch() {
+    int b, c, csz, m, d;
+    parseNext();
+    expect("(");
+    compileExpr();
+    expect(")");
+    expect("{");
+    savePos();
+
+    csz = 0;
+    for(;;) {
+        lookAhead();
+        if(!strcmp(ahead, "}")) break;
+        if(!strcmp(ahead, "case")) {
+            parseNext();
+            b = nmemory;
+            compileLiteral(0, evalExpr());
+            expect(":");
+            csz += 5+nmemory-b;
+            nmemory = b;
+        } else skipStatement();
+    }
+    parseNext();
+
+    restorePos();
+    b = nmemory;
+    nmemory += csz+3;
+    d = 0;
+    brks[bsp++] = 0;
+    for(;;) {
+        lookAhead();
+        if(!strcmp(ahead, "}")) break;
+        if(!strcmp(ahead, "case")) {
+            parseNext();
+            m = nmemory;
+            nmemory = b;
+            compileLiteral(1, evalExpr());
+            expect(":");
+            b = nmemory;
+            nmemory = m;
+            /* sub r1,r0 */
+            memory[b++] = 0x0e;
+            memory[b++] = 0x10;
+            /* beq r1,nmemory */
+            memory[b++] = 0xe1;
+            sh(b, nmemory-b-2);
+            b += 2;
+        } else if(!strcmp(ahead, "default")) {
+            parseNext();
+            expect(":");
+            d = nmemory;
+        } else compileStatement();
+    }
+    parseNext();
+    /* bra nmemory */
+    memory[b++] = 0x01;
+    sh(b, (d ? d : nmemory)-b-2);
+    resolveBreaks();
 }
 
 void compileStatement() {
@@ -1419,6 +1524,8 @@ void compileStatement() {
         nmemory += 2;
         sh(o, nmemory-o-2);
         resolveBreaks();
+    } else if(!strcmp(ahead, "switch")) {
+        compileSwitch();
     } else {
         compileExpr();
         expect(";");
