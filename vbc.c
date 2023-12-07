@@ -901,7 +901,7 @@ void storeLval(struct list *l) {
     case ARG:
         /* str rn,arg */
         memory[nmemory++] = 0xd0|(rn-1);
-        memory[nmemory++] = nargs-l->value+1;
+        memory[nmemory++] = l->value+2;
         break;
     case GLOBAL:
         /* lwi rn,global */
@@ -952,6 +952,15 @@ void storeLval(struct list *l) {
     rn--;
 }
 
+void compileArg(struct list *l) {
+    if(l) {
+        compileArg(l->b);
+        compileList(l->a);
+        /* psh r0 */
+        memory[nmemory++] = 0x70;
+    }
+}
+
 void compileCall(struct list *l) {
     int i, orn;
     struct list *a;
@@ -964,11 +973,7 @@ void compileCall(struct list *l) {
     rn = 0;
     i = 0;
 
-    for(a = l->b; a; a = a->b) {
-        compileList(a->a);
-        /* psh r0 */
-        memory[nmemory++] = 0x70;
-    }
+    compileArg(l->b);
 
     switch(l->a->type) {
     case GLOBAL:
@@ -1102,7 +1107,7 @@ void compileList(struct list *l) {
     case ARG:
         /* ldr rn,arg */
         memory[nmemory++] = 0xc0|rn;
-        memory[nmemory++] = nargs-l->value+1;
+        memory[nmemory++] = l->value+2;
         break;
     case GLOBAL:
         /* lwi rn,global */
@@ -1165,9 +1170,9 @@ void compileList(struct list *l) {
             /* mov rn,bp */
             memory[nmemory++] = 0x04;
             memory[nmemory++] = rn<<4|0xe;
-            /* lbi r1,local */
+            /* lbi r1,arg */
             memory[nmemory++] = 0xb0|rn+1;
-            memory[nmemory++] = nargs-l->a->value+1;
+            memory[nmemory++] = l->a->value+2;
             /* adw rn,r1 */
             memory[nmemory++] = 0x0f;
             memory[nmemory++] = rn<<4|rn+1;

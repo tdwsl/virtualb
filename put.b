@@ -1,36 +1,37 @@
 /* some output functions */
 
-putc
-    /* pop r2 : pop r1 : lbi r0,1 */
-    0x01b08182,
-    /* sys : mov pc,r2 : nop */
-    0x1fd20400;
+putchar
+    /* pop r2 : lbi r0,1 : adw ... */
+    0x0f01b082,
+    /* ... sp,r0 : dec sp : ldb r1,sp */
+    0x1f073ff0,
+    /* sys : dec sp : ldb r1,sp */
+    0x1f073f00,
+    /* sys : dec sp : ldb r1,sp */
+    0x1f073f00,
+    /* sys : dec sp : ldb r1,sp */
+    0x1f073f00,
+    /* sys : adw sp,r0 : mov ... */
+    0x04f00f00,
+    /* ... pc,r2 : nop nop nop */
+    0x1f1f1fd2;
 
-putchar(c) {
+putstr(s) {
     extrn char;
-    putc(char(&c, 3));
-    putc(char(&c, 2));
-    putc(char(&c, 1));
-    putc(char(&c, 0));
-}
-
-puts(s) {
     auto i;
     for(i = 0; char(s, i); i++)
-        putc(char(s, i));
+        putchar(char(s, i));
 }
 
-nbuf[8];
-
-putn(n) {
+putnumb(n) {
     extrn lchar;
-    auto b;
-    if(n < 0) { putc('-'); n = -n; }
+    auto b, nbuf[8];
+    if(n < 0) { putchar('-'); n = -n; }
     b = 0;
     do {
         lchar(nbuf, b++, n%10+'0');
         n =/ 10;
     } while(n);
-    while(b >= 0) putc(char(nbuf, --b));
+    do putchar(char(nbuf, --b)); while(b);
 }
 
