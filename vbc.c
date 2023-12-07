@@ -24,6 +24,7 @@
 #define MAXBRKS 200
 #define MAXCONS 150
 #define MAXRETS 200
+#define MAXGOT 120
 
 enum {
     EXTRN,
@@ -76,6 +77,13 @@ struct list {
     };
 };
 
+struct pos {
+    int lineNo;
+    long pos;
+    char next[BUFSZ];
+    char ahead[BUFSZ];
+};
+
 int lineNo, aheadLine;
 FILE *fp;
 const char *filename;
@@ -115,6 +123,8 @@ int cons[MAXCONS];
 int csp = 0;
 int rets[MAXRETS];
 int rsp;
+char *got[MAXGOT];
+int ngot = 0;
 
 void perr() {
     printf("%s:%d: error: ", filename, lineNo);
@@ -238,36 +248,36 @@ void lookAhead() {
     }
 }
 
-void savePos() {
-    pline = lineNo;
-    ppos = ftell(fp);
-    strcpy(pahead, ahead);
-    strcpy(pnext, next);
+void savePos(struct pos *p) {
+    p->lineNo = lineNo;
+    p->pos = ftell(fp);
+    strcpy(p->ahead, ahead);
+    strcpy(p->next, next);
 }
 
-void restorePos() {
-    lineNo = pline;
-    fseek(fp, ppos, SEEK_SET);
-    strcpy(ahead, pahead);
-    strcpy(next, pnext);
+void restorePos(struct pos *p) {
+    lineNo = p->lineNo;
+    fseek(fp, p->pos, SEEK_SET);
+    strcpy(ahead, p->ahead);
+    strcpy(next, p->next);
 }
 
-void swapPos() {
+void swapPos(struct pos *p) {
     int ln;
-    long p;
+    long ps;
     char buf[BUFSZ];
     strcpy(buf, ahead);
-    strcpy(ahead, pahead);
-    strcpy(pahead, buf);
+    strcpy(ahead, p->ahead);
+    strcpy(p->ahead, buf);
     strcpy(buf, next);
-    strcpy(next, pnext);
-    strcpy(pnext, buf);
-    ln = pline;
-    pline = lineNo;
+    strcpy(next, p->next);
+    strcpy(p->next, buf);
+    ln = p->lineNo;
+    p->lineNo = lineNo;
     lineNo = ln;
-    p = ppos;
-    ppos = ftell(fp);
-    fseek(fp, p, SEEK_SET);
+    ps = p->pos;
+    p->pos = ftell(fp);
+    fseek(fp, ps, SEEK_SET);
 }
 
 void parseString0(char *buf) {
@@ -1351,12 +1361,13 @@ void compileStatement();
 
 void compileSwitch() {
     int b, c, csz, m, d;
+    struct pos pos;
     parseNext();
     expect("(");
     compileExpr();
     expect(")");
     expect("{");
-    savePos();
+    savePos(&pos);
 
     csz = 0;
     for(;;) {
@@ -1373,7 +1384,7 @@ void compileSwitch() {
     }
     parseNext();
 
-    restorePos();
+    restorePos(&pos);
     b = nmemory;
     nmemory += csz+3;
     d = 0;
@@ -1411,6 +1422,7 @@ void compileSwitch() {
 
 void compileStatement() {
     int o;
+    struct pos pos;
     lookAhead();
     if(!strcmp(ahead, "{")) {
         parseNext();
@@ -1511,13 +1523,13 @@ void compileStatement() {
         memory[nmemory++] = 0xe0;
         o = nmemory;
         nmemory += 2;
-        savePos();
+        savePos(&pos);
         listExpr();
         expect(")");
         compileStatement();
-        swapPos();
+        swapPos(&pos);
         compileExpr();
-        restorePos();
+        restorePos(&pos);
         /* bra addr */
         memory[nmemory++] = 0x01;
         sh(nmemory, cons[--csp]-nmemory-2);
@@ -1573,9 +1585,9 @@ void compileFunction(char *name) {
         if(!strcmp(ahead, ")")) { parseNext(); break; }
         expect(",");
     }
-    for(i = 0; i < nargs; i++)
+    /*for(i = 0; i < nargs; i++)
         printf("%s ", args[i]);
-    printf("\n");
+    printf("\n");*/
 
     expect("{");
 
@@ -1674,7 +1686,7 @@ void compileData(char *name, char type) {
     g = addGlobal(name, ndata, type);
     lookAhead();
     for(;;) {
-        printf("%s\n", ahead);
+        /*printf("%s\n", ahead);*/
         if(!strcmp(ahead, "\"")) {
             *(int*)&data[ndata] = nglobals;
             parseNext();
@@ -1689,13 +1701,38 @@ void compileData(char *name, char type) {
     parseNext();
 }
 
+void compileFile(const char *filename);
+
 void compileOuter() {
     char name[BUFSZ];
     int n;
 
     parseNext();
     if(*next == 0) return;
-    printf("%s\n", next);
+    /*printf("%d:%s\n", lineNo, next);*/
+
+    if(!strcmp(next, "get")) {
+        for(;;) {
+            expect("\"");
+            parseString(nameP);
+            if(strnindex(got, ngot, nameP) == -1) {
+                got[ngot++] = nameP;
+                nameP += strlen(nameP)+1;
+                strcpy(name, ahead);
+                n = ac;
+                ac = 0;
+                *ahead = 0;
+                compileFile(got[ngot-1]);
+                strcpy(ahead, name);
+                ac = n;
+            }
+            lookAhead();
+            if(!strcmp(ahead, ";")) break;
+            expect(",");
+        }
+        parseNext();
+        return;
+    }
 
     strcpy(name, next);
     lookAhead();
