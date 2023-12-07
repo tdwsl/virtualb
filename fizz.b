@@ -1,16 +1,16 @@
 
 fizz(n) {
-    extrn puts, putn, putc;
+    extrn putstr, putnumb, putchar;
     if(n) {
         fizz(n-1);
-        if(!(n%3)) puts("Fizz");
-        if(!(n%5)) puts("Buzz");
-        else if(n%3) putn(n);
-        putc(' ');
+        if(!(n%3)) putstr("Fizz");
+        if(!(n%5)) putstr("Buzz");
+        else if(n%3) putnumb(n);
+        putchar(' ');
     }
 }
 
 main() {
     fizz(15);
-    putc('*n');
+    putchar('*n');
 }

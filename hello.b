@@ -1,11 +1,11 @@
 
 main() {
-    extrn puts(), putn(), putc();
+    extrn putstr(), putnumb(), putchar();
     auto hi, hey;
-    puts(hey = "Hello, world!*n");
+    putstr(hey = "Hello, world!*n");
     hi = "Hi!*n";
-    puts(hi);
-    putn(1027); putc('*n');
-    putn(-799); putc('*n');
-    putn(699); putc('*n');
+    putstr(hi);
+    putnumb(1027); putchar('*n');
+    putnumb(-799); putchar('*n');
+    putnumb(699); putchar('*n');
 }
