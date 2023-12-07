@@ -94,6 +94,7 @@ int nstringBuf = 0;
 char nameBuf[NAMEBUFSZ];
 char *nameP = nameBuf;
 char *locals[MAXLOCALS];
+int localsz[MAXLOCALS];
 char *args[MAXARGS];
 int nlocals, nargs;
 char tnameBuf[TEMPNAMEBUFSZ];
@@ -368,8 +369,8 @@ int number(char *s, int *n) {
 }
 
 int parseChar() {
-    int h;
     char c;
+    int h;
     h = 0;
     for(;;) {
         switch(c = nextChar()) {
@@ -389,8 +390,9 @@ int parseChar() {
         case '\n': case EOF: case 0:
             perr(); printf("expected char\n"); exit(0);
         }
-        h = h<<8|c&0xff;
+        h = h<<8|c;
     }
+    return h;
 }
 
 int value(char *s) {
@@ -535,14 +537,14 @@ struct list *listAtom() {
     struct list *l;
     l = &lists[nlists++];
     parseNext();
-    if((i = findGlobal(next)) != -1) {
-        l->type = GLOBAL;
-        l->value = i;
-    } else if((i = strnindex(locals, nlocals, next)) != -1) {
+    if((i = strnindex(locals, nlocals, next)) != -1) {
         l->type = LOCAL;
         l->value = i;
     } else if((i = strnindex(args, nargs, next)) != -1) {
         l->type = ARG;
+        l->value = i;
+    } else if((i = findGlobal(next)) != -1) {
+        l->type = GLOBAL;
         l->value = i;
     } else if(!strcmp(next, "(")) {
         nlists--;
@@ -1010,6 +1012,24 @@ int samePrecedence(struct list *l1, struct list *l2) {
     return 0;
 }
 
+void compileLiteral(int rn, int n) {
+    if(n >= -128 && n <= 127) {
+        /* lbi rn,value */
+        memory[nmemory++] = 0xb0|rn;
+        memory[nmemory++] = n;
+    } else if(n >= -32768 && n <= 32767) {
+        /* lhi rn,value */
+        memory[nmemory++] = 0xa0|rn;
+        sh(nmemory, n);
+        nmemory += 2;
+    } else {
+        /* lwi rn,value */
+        memory[nmemory++] = 0x90|rn;
+        *(int*)&memory[nmemory] = n;
+        nmemory += 4;
+    }
+}
+
 void compileList(struct list *l) {
     evalList(l);
     switch(l->type) {
@@ -1163,21 +1183,7 @@ void compileList(struct list *l) {
         memory[nmemory++] = rn<<4|rn;
         break;
     case IMM:
-        if(l->value >= -128 && l->value <= 127) {
-            /* lbi rn,value */
-            memory[nmemory++] = 0xb0|rn;
-            memory[nmemory++] = l->value;
-        } else if(l->value >= -32768 && l->value <= 32767) {
-            /* lhi rn,value */
-            memory[nmemory++] = 0xa0|rn;
-            sh(nmemory, l->value);
-            nmemory += 2;
-        } else {
-            /* lwi rn,value */
-            memory[nmemory++] = 0x90|rn;
-            *(int*)&memory[nmemory] = l->value;
-            nmemory += 4;
-        }
+        compileLiteral(rn, l->value);
         break;
     }
 }
@@ -1469,9 +1475,19 @@ void compileFunction(char *name) {
             if(strcmp(next, ";")) {
                 for(;;) {
                     validName(next);
+                    localsz[nlocals] = 0;
                     locals[nlocals++] = tnameP;
                     addTname(next);
                     lookAhead();
+                    if(!strcmp(ahead, "[")) {
+                        parseNext();
+                        localsz[nlocals-1] = evalExpr();
+                        if(localsz[nlocals-1] <= 0) {
+                            perr(); printf("invalid size\n"); exit(0);
+                        }
+                        expect("]");
+                        lookAhead();
+                    }
                     if(!strcmp(ahead, ";")) break;
                     expect(",");
                     parseNext();
@@ -1509,6 +1525,17 @@ void compileFunction(char *name) {
         /* adw sp,r0 */
         memory[nmemory++] = 0x0f;
         memory[nmemory++] = 0xf0;
+
+        for(i = 0; i < nlocals; i++) {
+            if(!localsz[i]) continue;
+            compileLiteral(0, -localsz[i]);
+            /* adw sp,r0 */
+            memory[nmemory++] = 0x0f;
+            memory[nmemory++] = 0xf0;
+            /* str sp,local */
+            memory[nmemory++] = 0xdf;
+            memory[nmemory++] = -i-1;
+        }
     }
 
     for(;;) {
