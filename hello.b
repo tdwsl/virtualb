@@ -9,3 +9,6 @@ main() {
     putnumb(-799); putchar('*n');
     putnumb(699); putchar('*n');
 }
+
+get "put.b";
+

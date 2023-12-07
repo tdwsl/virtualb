@@ -23,10 +23,9 @@ putstr(s) {
         putchar(char(s, i));
 }
 
-putnumb(n) {
+putu(n) {
     extrn lchar;
     auto b, nbuf[8];
-    if(n < 0) { putchar('-'); n = -n; }
     b = 0;
     do {
         lchar(nbuf, b++, n%10+'0');
@@ -34,4 +33,11 @@ putnumb(n) {
     } while(n);
     do putchar(char(nbuf, --b)); while(b);
 }
+
+putnumb(n) {
+    if(n < 0) { putchar('-'); n = -n; }
+    putu(n);
+}
+
+get "char.b";
 

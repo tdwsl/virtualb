@@ -14,3 +14,6 @@ main() {
     fizz(15);
     putchar('*n');
 }
+
+get "put.b";
+

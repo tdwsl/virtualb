@@ -17,3 +17,6 @@ main() {
         beer(i-1); putstr(" on the wall*n*n");
     }
 }
+
+get "put.b";
+

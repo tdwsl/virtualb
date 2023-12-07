@@ -1637,11 +1637,13 @@ void compileFunction(char *name) {
         } else break;
     }
 
-    /* psh bp */
-    memory[nmemory++] = 0x7e;
-    /* mov bp,sp */
-    memory[nmemory++] = 0x04;
-    memory[nmemory++] = 0xef;
+    if(nlocals || nargs) {
+        /* psh bp */
+        memory[nmemory++] = 0x7e;
+        /* mov bp,sp */
+        memory[nmemory++] = 0x04;
+        memory[nmemory++] = 0xef;
+    }
     if(nlocals) {
         /* lbi r0,-nlocals */
         memory[nmemory++] = 0xb0;
@@ -1671,11 +1673,13 @@ void compileFunction(char *name) {
     parseNext();
 
     resolveRets();
-    /* mov sp,bp */
-    memory[nmemory++] = 0x04;
-    memory[nmemory++] = 0xfe;
-    /* pop bp */
-    memory[nmemory++] = 0x8e;
+    if(nlocals || nargs) {
+        /* mov sp,bp */
+        memory[nmemory++] = 0x04;
+        memory[nmemory++] = 0xfe;
+        /* pop bp */
+        memory[nmemory++] = 0x8e;
+    }
     /* ret argc */
     memory[nmemory++] = 0x03;
     memory[nmemory++] = nargs;
