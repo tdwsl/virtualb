@@ -1,23 +1,14 @@
 /* some output functions */
 
-putchar
-    /* pop r2 : lbi r0,1 : adw ... */
-    0x0f01b082,
-    /* ... sp,r0 : dec sp : ldb r1,sp */
-    0x1f073ff0,
-    /* sys : dec sp : ldb r1,sp */
-    0x1f073f00,
-    /* sys : dec sp : ldb r1,sp */
-    0x1f073f00,
-    /* sys : dec sp : ldb r1,sp */
-    0x1f073f00,
-    /* sys : adw sp,r0 : mov ... */
-    0x04f00f00,
-    /* ... pc,r2 : nop nop nop */
-    0x1f1f1fd2;
+putchar(c) {
+    extrn sys, char;
+    sys(1, (c>>24)&0xff);
+    sys(1, (c>>16)&0xff);
+    sys(1, (c>>8)&0xff);
+    sys(1, c&0xff);
+}
 
 putstr(s) {
-    extrn char;
     auto i;
     for(i = 0; char(s, i); i++)
         putchar(char(s, i));
@@ -39,5 +30,5 @@ putnumb(n) {
     putu(n);
 }
 
-get "char.b";
+get "char.b", "sys.b";
 

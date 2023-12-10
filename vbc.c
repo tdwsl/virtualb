@@ -710,11 +710,11 @@ struct list *listShift() {
     if(!strcmp(ahead, ">>")) {
         parseNext();
         l->type = OP2;
-        l->value = SHL;
+        l->value = SHR;
     } else if(!strcmp(ahead, "<<")) {
         parseNext();
         l->type = OP2;
-        l->value = SHR;
+        l->value = SHL;
     } else return a;
     nlists++;
     l->b = listShift();
@@ -1837,13 +1837,15 @@ int main(int argc, char **args) {
         return 0;
     }
     *ahead = 0;
-    /* jsr ORG+5 */
+    /* jsr ORG+6 */
     memory[nmemory++] = 0x02;
-    *(int*)&memory[nmemory] = ORG+5;
+    *(int*)&memory[nmemory] = ORG+6;
     nmemory += 4;
     /* lbi r0,0 */
     memory[nmemory++] = 0xb0;
     memory[nmemory++] = 0x00;
+    /* psh r0 */
+    memory[nmemory++] = 0x70;
     /* sys */
     memory[nmemory++] = 0x00;
     for(i = 1; i < argc; i++) {

@@ -10,7 +10,7 @@ enum {
     SYS=0x00, BRA, JSR, RET,
     MOV, LDW, LDH, LDB, LUH, LUB, STW, STH, STB, ADD, SUB, ADW,
     AND, LOR, XOR, SHR, SHL, MUL, DIV, MOD, EQU, NEQ, LTE,
-    GTN, LTN, GTE, PHM, NOP,
+    GTN, LTN, GTE, PHM,
     INC=0x20, DEC=0x30, INV=0x40, NOT=0x50, NEG=0x60, PSH=0x70, POP=0x80,
     LWI=0x90, LHI=0xa0, LBI=0xb0, LDR=0xc0, STR=0xd0, BEQ=0xe0, BNE=0xf0,
 };
@@ -51,7 +51,6 @@ void run() {
         switch(n&0xf0) {
         case 0x00:
         case 0x10:
-            if(n == NOP) continue;
             if(!(n&0xfc)) {
                 switch(n) {
                 case SYS: sys(); continue;
