@@ -39,6 +39,7 @@ void sys();
 void run() {
     int n, a, b;
     for(;;) {
+        //printf("$%x ", regs[13]);
         /*printf("0x%.8x\n   ", regs[13]);
         for(a = 0; a < 16; a++) printf("0x%x ", regs[a]); printf("\n");
         for(a = regs[15]-16; a < regs[15]+16; a += 4)

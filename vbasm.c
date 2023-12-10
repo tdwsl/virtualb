@@ -72,11 +72,11 @@ void parseBuf0(char *buf) {
 }
 
 void parseBuf(char *buf) {
-    int ol;
     parseBuf0(buf);
-    if(!strcmp(buf, ";")) {
-        ol = lineNo;
-        while(ol == lineNo) parseBuf0(buf);
+    while(!strcmp(buf, ";")) {
+        while(fgetc(fp) != '\n' && !feof(fp));
+        lineNo++;
+        parseBuf0(buf);
     }
 }
 
@@ -95,7 +95,9 @@ void perr() {
 
 void expect(const char *s) {
     parseNext();
-    if(strcmp(next, s)) { perr(); printf("expected %s\n", s); exit(0); }
+    if(strcmp(next, s)) {
+        perr(); printf("expected %s, not %s\n", s, next); exit(0);
+    }
 }
 
 char parseChar() {
@@ -279,6 +281,14 @@ void pass1() {
                 if(strcmp(ahead, ",")) break;
                 parseNext();
             }
+        } else if(!strcmp(next, "dh")) {
+            for(;;) {
+                evalExpr(1);
+                org += 2;
+                lookAhead();
+                if(strcmp(ahead, ",")) break;
+                parseNext();
+            }
         } else if(!strcmp(next, "dw")) {
             for(;;) {
                 evalExpr(1);
@@ -287,6 +297,9 @@ void pass1() {
                 if(strcmp(ahead, ",")) break;
                 parseNext();
             }
+        } else if(!strcmp(next, "align")) {
+            i = evalExpr(0);
+            org += (i-org%i)%i;
         } else {
             if(strnindex(labels, nlabels, next) != -1) {
                 perr(); printf("duplicate label\n"); exit(0);
@@ -296,11 +309,6 @@ void pass1() {
             expect(":");
         }
     }
-}
-
-void sh(int a, int h) {
-    memory[a] = h;
-    memory[a+1] = h>>8;
 }
 
 void pass2() {
@@ -324,7 +332,7 @@ void pass2() {
                     nmemory += 4;
                     org += 4;
                 } else if(i == 8) {
-                    sh(nmemory, evalExpr(0));
+                    *(int*)&memory[nmemory] = evalExpr(0);
                     nmemory += 2;
                     org += 2;
                 } else if(i >= 9 && i <= 11) {
@@ -332,7 +340,7 @@ void pass2() {
                     org++;
                 } else {
                     org += 2;
-                    sh(nmemory, evalExpr(0)-org);
+                    *(int*)&memory[nmemory] = evalExpr(0)-org;
                     nmemory += 2;
                 }
             }
@@ -345,7 +353,7 @@ void pass2() {
         } else if(!strcmp(next, "bra")) {
             org += 3;
             memory[nmemory++] = 0x01;
-            sh(nmemory, evalExpr(0)-org);
+            *(int*)&memory[nmemory] = evalExpr(0)-org;
             nmemory += 2;
         } else if(!strcmp(next, "jsr")) {
             org += 5;
@@ -372,6 +380,15 @@ void pass2() {
                 if(strcmp(ahead, ",")) break;
                 parseNext();
             }
+        } else if(!strcmp(next, "dh")) {
+            for(;;) {
+                *(int*)&memory[nmemory] = evalExpr(0);
+                nmemory += 2;
+                org += 2;
+                lookAhead();
+                if(strcmp(ahead, ",")) break;
+                parseNext();
+            }
         } else if(!strcmp(next, "dw")) {
             for(;;) {
                 *(int*)&memory[nmemory] = evalExpr(0);
@@ -381,10 +398,22 @@ void pass2() {
                 if(strcmp(ahead, ",")) break;
                 parseNext();
             }
+        } else if(!strcmp(next, "align")) {
+            i = evalExpr(0);
+            i = (i-org%i)%i;
+            org += i;
+            memset(&memory[nmemory], 0, i);
+            nmemory += i;
         } else {
             expect(":");
         }
     }
+}
+
+void listLabels() {
+    int i;
+    for(i = 0; i < nlabels; i++)
+        printf("0x%.8x %s\n", labelv[i], labels[i]);
 }
 
 int main(int argc, char **args) {
@@ -409,6 +438,7 @@ int main(int argc, char **args) {
     }
     fwrite(memory, 1, nmemory, fp);
     fclose(fp);
+    listLabels();
     printf("assembled %d bytes\n", nmemory);
     return 0;
 }

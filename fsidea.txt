@@ -1,0 +1,20 @@
+
+directory structure:
+nextblock:2
+name:12
+parent:2
+free space:2
+
+each file (18 per block):
+filename:12
+block:2
+
+parent is 0 for root directory
+blank filename for subdirectory
+
+file structure:
+nextblock:2
+file:...
+
+block size is 256, just to be real small
+
