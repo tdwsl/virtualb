@@ -1,6 +1,7 @@
 /* virtualb interpreter */
 
 #include <stdio.h>
+#include <string.h>
 
 #define ORG 0x10000
 #define MEMORYSZ 0x200000
@@ -20,6 +21,10 @@ int regs[16] = {
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     ORG, ORG, ORG,
 };
+
+extern unsigned char disk[];
+extern char *diskname;
+void loadDisk();
 
 int lh(int a) {
     return *(short*)&memory[a];
@@ -113,18 +118,13 @@ void run() {
 }
 
 int main(int argc, char **args) {
-    FILE *fp;
-    if(argc <= 1) {
+    if(argc < 1 || argc > 2) {
         printf("usage: %s <file>\n", args[0]);
         return 0;
     }
-    fp = fopen(args[1], "rb");
-    if(!fp) {
-        printf("failed to open %s\n", args[1]);
-        return 0;
-    }
-    fread(memory+ORG, 1, MEMORYSZ-ORG, fp);
-    fclose(fp);
+    if(argc == 2) diskname = args[1];
+    loadDisk();
+    memcpy(memory+ORG, disk, 1024);
     run();
     return 0;
 }

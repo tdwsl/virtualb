@@ -415,8 +415,6 @@ int value(char *s) {
 int evalAtom() {
     int n;
     parseNext();
-    if(!strcmp(next, "++")) return evalAtom()+1;
-    if(!strcmp(next, "--")) return evalAtom()-1;
     if(!strcmp(next, "-")) return -evalAtom();
     if(!strcmp(next, "~")) return ~evalAtom();
     if(!strcmp(next, "!")) return !evalAtom();
