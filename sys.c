@@ -42,7 +42,11 @@ int pop() {
 
 void dump(const char *filename) {
     int a, b;
-    FILE *fp = fopen(filename, "wb");
+    FILE *fp;
+    if(!(fp = fopen(filename, "wb"))) {
+        printf("failed to dump %s\n", filename);
+        exit(0);
+    }
     a = pop();
     b = pop();
     fwrite(&memory[a], 1, b, fp);

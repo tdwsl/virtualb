@@ -1,20 +1,19 @@
 
 directory structure:
+name:14
 nextblock:2
-name:12
-parent:2
-free space:2
 
-each file (18 per block):
-filename:12
+each file:
+filename:14
 block:2
 
-parent is 0 for root directory
+parent? what's that?
 blank filename for subdirectory
+extensions to directories don't have the first bit
 
 file structure:
 nextblock:2
 file:...
 
-block size is 256, just to be real small
+block size is 512, cause of my massive, horrible code
 

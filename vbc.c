@@ -5,7 +5,6 @@
 #include <string.h>
 #include <assert.h>
 
-#define ORG 0x10000
 #define BUFSZ 200
 #define MEMORYSZ 32768
 #define DATASZ 32768
@@ -84,6 +83,7 @@ struct pos {
     char ahead[BUFSZ];
 };
 
+int org = 0x10000;
 int lineNo, aheadLine;
 FILE *fp;
 const char *filename;
@@ -125,9 +125,13 @@ int rets[MAXRETS];
 int rsp;
 char *got[MAXGOT];
 int ngot = 0;
+char *strphdr = "*";
+char *currentFunction = 0;
 
 void perr() {
-    printf("%s:%d: error: ", filename, lineNo);
+    printf("%s:%d: error", filename, lineNo);
+    if(currentFunction) printf(" in %s", currentFunction);
+    printf(": ");
 }
 
 void charAhead() {
@@ -497,7 +501,7 @@ int evalExpr() {
 }
 
 void deferString() {
-    globals[nglobals++] = (struct global) { "*", nstringBuf, STRING, };
+    globals[nglobals++] = (struct global) { strphdr, nstringBuf, STRING, };
     parseString(&stringBuf[nstringBuf]);
     nstringBuf += strlen(&stringBuf[nstringBuf])+1;
 }
@@ -1419,7 +1423,7 @@ void compileSwitch() {
 }
 
 void compileStatement() {
-    int o;
+    int o, c;
     struct pos pos;
     lookAhead();
     if(!strcmp(ahead, "{")) {
@@ -1515,14 +1519,17 @@ void compileStatement() {
         expect(";");
         cons[csp++] = nmemory;
         brks[bsp++] = 0;
+        o = nmemory;
         compileExpr();
         expect(";");
-        /* beq r0,addr */
-        memory[nmemory++] = 0xe0;
-        o = nmemory;
-        nmemory += 2;
+        if(c = (o != nmemory)) {
+            /* beq r0,addr */
+            memory[nmemory++] = 0xe0;
+            o = nmemory;
+            nmemory += 2;
+        }
         savePos(&pos);
-        listExpr();
+        skipExpr();
         expect(")");
         compileStatement();
         swapPos(&pos);
@@ -1532,7 +1539,7 @@ void compileStatement() {
         memory[nmemory++] = 0x01;
         sh(nmemory, cons[--csp]-nmemory-2);
         nmemory += 2;
-        sh(o, nmemory-o-2);
+        if(c) sh(o, nmemory-o-2);
         resolveBreaks();
     } else if(!strcmp(ahead, "switch")) {
         compileSwitch();
@@ -1566,9 +1573,12 @@ struct global *addGlobal(char *name, int addr, char type) {
 void compileFunction(char *name) {
     int i;
     struct global *current;
+    char *prevf;
 
     current = addGlobal(name, nmemory, FUN);
 
+    prevf = currentFunction;
+    currentFunction = name;
     tnameP = tnameBuf;
     nlocals = 0;
     nargs = 0;
@@ -1681,6 +1691,8 @@ void compileFunction(char *name) {
     /* ret argc */
     memory[nmemory++] = 0x03;
     memory[nmemory++] = nargs;
+
+    currentFunction = prevf;
 }
 
 void compileData(char *name, char type) {
@@ -1791,28 +1803,32 @@ void compileFile(const char *name) {
     lineNo = pline;
 }
 
+int resolveAddr(struct global *g) {
+    switch(g->type) {
+    case BSS: case BSSV:
+        return g->addr+org+nmemory+ndata+nstringBuf;
+        break;
+    case STRING:
+        return g->addr+org+nmemory+ndata;
+        break;
+    case DATA: case DATAV:
+        return g->addr+org+nmemory;
+        break;
+    case FUN:
+        return g->addr+org;
+        break;
+    default:
+        perr(); printf("unresolved reference to %s\n", g->name); exit(0);
+        break;
+    }
+}
+
 void resolveExrefs() {
     int i, a;
     struct global *g;
     for(i = 0; i < nexrefs; i++) {
         g = &globals[*(int*)&memory[a=exrefs[i]]];
-        switch(g->type) {
-        case BSS: case BSSV:
-            *(int*)&memory[a] = g->addr+ORG+nmemory+ndata+nstringBuf;
-            break;
-        case STRING:
-            *(int*)&memory[a] = g->addr+ORG+nmemory+ndata;
-            break;
-        case DATA: case DATAV:
-            *(int*)&memory[a] = g->addr+ORG+nmemory;
-            break;
-        case FUN:
-            *(int*)&memory[a] = g->addr+ORG;
-            break;
-        default:
-            perr(); printf("unresolved reference to %s\n", g->name); exit(0);
-            break;
-        }
+        *(int*)&memory[a] = resolveAddr(g);
     }
 }
 
@@ -1826,6 +1842,15 @@ void saveFile(const char *filename) {
     fclose(fp);
 }
 
+void listGlobals() {
+    int i;
+    struct global *g;
+    for(i = 0; i < nglobals; i++)
+        if(globals[i].name != strphdr)
+            printf("0x%.8x %s\n", resolveAddr(&globals[i]), globals[i].name);
+    printf("compiled %d bytes\n", nmemory+ndata+nstringBuf);
+}
+
 int main(int argc, char **args) {
     int i;
     assert(sizeof(char) == 1);
@@ -1837,9 +1862,9 @@ int main(int argc, char **args) {
         return 0;
     }
     *ahead = 0;
-    /* jsr ORG+6 */
+    /* jsr org+6 */
     memory[nmemory++] = 0x02;
-    *(int*)&memory[nmemory] = ORG+6;
+    *(int*)&memory[nmemory] = org+6;
     nmemory += 4;
     /* lbi r0,0 */
     memory[nmemory++] = 0xb0;
@@ -1851,12 +1876,15 @@ int main(int argc, char **args) {
     for(i = 1; i < argc; i++) {
         if(!strcmp(args[i], "-o")) {
             if(++i < argc) outFile = args[i];
+        } else if(!strcmp(args[i], "-r")) {
+            if(++i < argc) org = value(args[i]);
         } else compileFile(args[i]);
     }
     resolveExrefs();
     i = findGlobal("main");
     if(i == -1 || globals[i].type == EXTRN) printf("no main\n");
-    else *(int*)&memory[1] = globals[i].addr+ORG;
+    else *(int*)&memory[1] = globals[i].addr+org;
     saveFile(outFile);
+    listGlobals();
     return 0;
 }

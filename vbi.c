@@ -17,10 +17,7 @@ enum {
 
 unsigned char memory[MEMORYSZ];
 
-int regs[16] = {
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    ORG, ORG, ORG,
-};
+int regs[16];
 
 extern unsigned char disk[];
 extern char *diskname;
@@ -124,6 +121,9 @@ int main(int argc, char **args) {
     }
     if(argc == 2) diskname = args[1];
     loadDisk();
+    regs[15] = ORG;
+    regs[14] = ORG;
+    regs[13] = ORG;
     memcpy(memory+ORG, disk, 1024);
     run();
     return 0;
