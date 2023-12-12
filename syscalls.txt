@@ -1,0 +1,11 @@
+list of syscalls:
+
+0	exit()
+1	putchar(char)
+2	getchar() -> char
+3	dump(mem, size)
+4	disk_read(mem, size) -> size
+5	disk_write(mem, size) -> size
+6	disk_pos() -> pos
+7	disk_seek(pos)
+

@@ -9,7 +9,7 @@ block:2
 
 parent? what's that?
 blank filename for subdirectory
-extensions to directories don't have the first bit
+extensions to directories still have the first bit, 14 bytes of dead space
 
 file structure:
 nextblock:2

@@ -46,7 +46,7 @@ void saveFile(char *filename, int block, int size) {
     FILE *fp;
     fp = open(filename, "rb");
     do {
-        if(size>1) *(int*)&buf = block++;
+        if(size>1) *(int*)&buf = ++block;
         else memset(buf, 0, 512);
         fread(buf+2, 1, 510, fp);
         fwrite(buf, 1, 512, out);

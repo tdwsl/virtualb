@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#define ORG 0x10000
+#define ORG 0x20000
 
 const char *istrs1[] = {
     "sys", "bra", "jsr", "ret", "mov", "ldw", "ldh", "ldb",

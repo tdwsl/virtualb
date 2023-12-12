@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define ORG 0x10000
+#define ORG 0x20000
 #define MEMORYSZ 0x200000
 
 enum {
@@ -121,6 +121,16 @@ int main(int argc, char **args) {
     }
     if(argc == 2) diskname = args[1];
     loadDisk();
+    /* jsr ORG */
+    memory[ORG-9] = 0x02;
+    *(int*)&memory[ORG-8] = ORG;
+    /* lbi r0,0 */
+    memory[ORG-4] = 0xb0;
+    memory[ORG-3] = 0x00;
+    /* psh r0 */
+    memory[ORG-2] = 0x70;
+    /* sys */
+    memory[ORG-1] = 0x00;
     regs[15] = ORG;
     regs[14] = ORG;
     regs[13] = ORG;

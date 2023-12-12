@@ -33,6 +33,7 @@ enum {
     DATAV,
     FUN,
     STRING,
+    ABSOLUTE,
 };
 
 enum {
@@ -83,10 +84,10 @@ struct pos {
     char ahead[BUFSZ];
 };
 
-int org = 0x10000;
+int org = 0x20000;
 int lineNo, aheadLine;
 FILE *fp;
-const char *filename;
+const char *filename = "";
 char next[BUFSZ];
 char ahead[BUFSZ];
 char ac = 0;
@@ -125,7 +126,6 @@ int rets[MAXRETS];
 int rsp;
 char *got[MAXGOT];
 int ngot = 0;
-char *strphdr = "*";
 char *currentFunction = 0;
 
 void perr() {
@@ -227,7 +227,7 @@ void parseBuf(char *buf) {
                     lineNo = ln;
                     perr();
                     printf("unterminated comment /*\n");
-                    exit(0);
+                    exit(1);
                 }
                 parseBuf0(buf);
             } while(strcmp(buf, "*/"));
@@ -297,17 +297,17 @@ void parseString0(char *buf) {
             case 'b': *buf = '\b'; break;
             case '0': *buf = '\0'; break;
             default:
-                perr(); printf("unknown escape character %c\n", *buf); exit(0);
+                perr(); printf("unknown escape character %c\n", *buf); exit(1);
             }
             break;
         case '"':
             *buf = 0;
             return;
         case '\n':
-            perr(); printf("EOL before end of string\n"); exit(0);
+            perr(); printf("EOL before end of string\n"); exit(1);
         default:
             if(feof(fp)) {
-                perr(); printf("EOF before end of string\n"); exit(0);
+                perr(); printf("EOF before end of string\n"); exit(1);
             }
             break;
         }
@@ -330,7 +330,7 @@ void validName(char *buf) {
     if(strchr(delim, *buf) || number(buf, &n)) {
         perr();
         printf("expected identifier, got %s\n", buf);
-        exit(0);
+        exit(1);
     }
 }
 
@@ -339,7 +339,7 @@ int evalExpr();
 void expect(const char *s) {
     parseNext();
     if(strcmp(next, s)) {
-        perr(); printf("expected %s, not %s\n", s, next); exit(0);
+        perr(); printf("expected %s, not %s\n", s, next); exit(1);
     }
 }
 
@@ -396,13 +396,13 @@ int parseChar() {
             case 't': c = '\t'; break;
             case 'b': c = '\b'; break;
             case '0': c = '\0'; break;
-            default: perr(); printf("unknown escape char %c\n", c); exit(0);
+            default: perr(); printf("unknown escape char %c\n", c); exit(1);
             }
             break;
         case '\'':
             return h;
         case '\n': case EOF: case 0:
-            perr(); printf("expected char\n"); exit(0);
+            perr(); printf("expected char\n"); exit(1);
         }
         h = h<<8|c;
     }
@@ -413,7 +413,7 @@ int value(char *s) {
     int n;
     if(number(s, &n)) return n;
     if(!strcmp(s, "'")) return parseChar();
-    perr(); printf("expected value\n"); exit(0);
+    perr(); printf("expected value\n"); exit(1);
 }
 
 int evalAtom() {
@@ -501,7 +501,7 @@ int evalExpr() {
 }
 
 void deferString() {
-    globals[nglobals++] = (struct global) { strphdr, nstringBuf, STRING, };
+    globals[nglobals++] = (struct global) { "*", nstringBuf, STRING, };
     parseString(&stringBuf[nstringBuf]);
     nstringBuf += strlen(&stringBuf[nstringBuf])+1;
 }
@@ -571,7 +571,7 @@ struct list *listAtom() {
         l->value = parseChar();
     } else {
         if(!number(next, &i)) {
-            perr(); printf("expected value, got %s\n", next); exit(0);
+            perr(); printf("expected value, got %s\n", next); exit(1);
         }
         l->type = IMM;
         l->value = i;
@@ -928,20 +928,21 @@ void storeLval(struct list *l) {
     case INDEX:
         switch(l->a->type) {
         case GLOBAL:
-            /* lwi rn,global */
-            memory[nmemory++] = 0x90|rn;
-            *(int*)&memory[nmemory] = l->value;
-            exrefs[nexrefs++] = nmemory;
-            nmemory += 4;
-            rn++;
-            compileList(l->b);
-            break;
+            if(globals[l->a->value].type!=DATAV
+                    && globals[l->a->value].type!=BSSV) {
+                /* lwi rn,global */
+                memory[nmemory++] = 0x90|rn;
+                *(int*)&memory[nmemory] = l->a->value;
+                exrefs[nexrefs++] = nmemory;
+                nmemory += 4;
+                break;
+            }
         default:
             compileList(l->a);
-            rn++;
-            compileList(l->b);
             break;
         }
+        rn++;
+        compileList(l->b);
         rn--;
         /* adw rn,r1 */
         memory[nmemory++] = 0x0f;
@@ -958,7 +959,7 @@ void storeLval(struct list *l) {
         memory[nmemory++] = rn<<4|rn+1;
         break;
     default:
-        perr(); printf("expected lvalue\n"); exit(0);
+        perr(); printf("expected lvalue\n"); exit(1);
         break;
     }
     rn--;
@@ -1136,20 +1137,21 @@ void compileList(struct list *l) {
     case INDEX:
         switch(l->a->type) {
         case GLOBAL:
-            /* lwi rn,global */
-            memory[nmemory++] = 0x90|rn;
-            *(int*)&memory[nmemory] = l->value;
-            exrefs[nexrefs++] = nmemory;
-            nmemory += 4;
-            rn++;
-            compileList(l->b);
-            break;
+            if(globals[l->a->value].type!=DATAV
+                    && globals[l->a->value].type!=BSSV) {
+                /* lwi rn,global */
+                memory[nmemory++] = 0x90|rn;
+                *(int*)&memory[nmemory] = l->a->value;
+                exrefs[nexrefs++] = nmemory;
+                nmemory += 4;
+                break;
+            }
         default:
             compileList(l->a);
-            rn++;
-            compileList(l->b);
             break;
         }
+        rn++;
+        compileList(l->b);
         rn--;
         /* adw rn,r1 */
         memory[nmemory++] = 0x0f;
@@ -1190,7 +1192,7 @@ void compileList(struct list *l) {
             memory[nmemory++] = rn<<4|rn+1;
             break;
         default:
-            perr(); printf("expected lvalue\n"); exit(0);
+            perr(); printf("expected lvalue\n"); exit(1);
         }
         break;
     case DEREF:
@@ -1313,7 +1315,7 @@ void compileExpr() {
 }
 
 void beforeEof(const char *s) {
-    if(feof(fp)) { perr(); printf("expected %s before EOF\n", s); exit(0); }
+    if(feof(fp)) { perr(); printf("expected %s before EOF\n", s); exit(1); }
 }
 
 void skipExpr() {
@@ -1446,14 +1448,14 @@ void compileStatement() {
     } else if(!strcmp(ahead, "continue")) {
         parseNext();
         expect(";");
-        if(!csp) { perr(); printf("unexpected continue\n"); exit(0); }
+        if(!csp) { perr(); printf("unexpected continue\n"); exit(1); }
         /* bra loop */
         memory[nmemory++] = 0x01;
         sh(nmemory, cons[csp-1]);
         nmemory += 2;
     } else if(!strcmp(ahead, "break")) {
         parseNext();
-        if(!bsp) { perr(); printf("unexpected break\n"); exit(0); }
+        if(!bsp) { perr(); printf("unexpected break\n"); exit(1); }
         /* bra out */
         memory[nmemory++] = 0x01;
         brks[bsp++] = nmemory;
@@ -1507,7 +1509,7 @@ void compileStatement() {
         compileExpr();
         expect(")");
         expect(";");
-        /* bne addr */
+        /* bne r0,addr */
         memory[nmemory++] = 0xf0;
         sh(nmemory, cons[--csp]-nmemory-2);
         nmemory += 2;
@@ -1556,7 +1558,7 @@ struct global *addGlobal(char *name, int addr, char type) {
         if(type == EXTRN)
             return &globals[i];
         if(globals[i].type != EXTRN) {
-            perr(); printf("%s already defined\n", name); exit(0);
+            perr(); printf("%s already defined\n", name); exit(1);
         }
         globals[i].type = type;
         globals[i].addr = addr;
@@ -1615,7 +1617,7 @@ void compileFunction(char *name) {
                         parseNext();
                         localsz[nlocals-1] = evalExpr();
                         if(localsz[nlocals-1] <= 0) {
-                            perr(); printf("invalid size\n"); exit(0);
+                            perr(); printf("invalid size\n"); exit(1);
                         }
                         expect("]");
                         lookAhead();
@@ -1675,7 +1677,7 @@ void compileFunction(char *name) {
     for(;;) {
         lookAhead();
         if(!strcmp(ahead, "}")) break;
-        if(feof(fp)) { perr(); printf("expected }\n"); exit(0); }
+        if(feof(fp)) { perr(); printf("expected }\n"); exit(1); }
         compileStatement();
     }
     parseNext();
@@ -1710,7 +1712,7 @@ void compileData(char *name, char type) {
         lookAhead();
         if(!strcmp(ahead, ";")) break;
         expect(",");
-        g->type = DATAV;
+        g->type = DATA;
     }
     parseNext();
 }
@@ -1757,12 +1759,12 @@ void compileOuter() {
             parseNext();
             lookAhead();
             if(!strcmp(ahead, ";")) {
-                perr(); printf("unexpected ;\n"); exit(0);
+                perr(); printf("unexpected ;\n"); exit(1);
             }
-            compileData(name, DATAV);
+            compileData(name, DATA);
         } else {
             addGlobal(name, nextBss, BSS);
-            nextBss += evalExpr();
+            nextBss += evalExpr()*4;
             expect("]");
             expect(";");
         }
@@ -1774,7 +1776,7 @@ void compileOuter() {
         parseNext();
         compileFunction(name);
     } else {
-        compileData(name, DATA);
+        compileData(name, DATAV);
     }
 }
 
@@ -1790,7 +1792,7 @@ void compileFile(const char *name) {
     filename = name;
     lineNo = 1;
     fp = fopen(filename, "r");
-    if(!fp) { perr(); printf("failed to open file\n"); exit(0); }
+    if(!fp) { perr(); printf("failed to open file\n"); exit(1); }
 
     while(!feof(fp) || *ahead) {
         compileOuter();
@@ -1807,18 +1809,16 @@ int resolveAddr(struct global *g) {
     switch(g->type) {
     case BSS: case BSSV:
         return g->addr+org+nmemory+ndata+nstringBuf;
-        break;
     case STRING:
         return g->addr+org+nmemory+ndata;
-        break;
     case DATA: case DATAV:
         return g->addr+org+nmemory;
-        break;
     case FUN:
         return g->addr+org;
-        break;
+    case ABSOLUTE:
+        return g->addr;
     default:
-        perr(); printf("unresolved reference to %s\n", g->name); exit(0);
+        perr(); printf("unresolved reference to %s\n", g->name); exit(1);
         break;
     }
 }
@@ -1832,10 +1832,10 @@ void resolveExrefs() {
     }
 }
 
-void saveFile(const char *filename) {
+void saveFile(char *filename) {
     FILE *fp;
     fp = fopen(filename, "wb");
-    if(!fp) { printf("failed to open output file %s\n", filename); exit(0); }
+    if(!fp) { printf("failed to open output file %s\n", filename); exit(1); }
     fwrite(memory, 1, nmemory, fp);
     fwrite(data, 1, ndata, fp);
     fwrite(stringBuf, 1, nstringBuf, fp);
@@ -1846,45 +1846,84 @@ void listGlobals() {
     int i;
     struct global *g;
     for(i = 0; i < nglobals; i++)
-        if(globals[i].name != strphdr)
+        if(globals[i].type != STRING)
             printf("0x%.8x %s\n", resolveAddr(&globals[i]), globals[i].name);
-    printf("compiled %d bytes\n", nmemory+ndata+nstringBuf);
+}
+
+void saveGlobals(char *filename) {
+    int i;
+    struct global *g;
+    FILE *fp;
+    if(!(fp = fopen(filename, "w"))) {
+        printf("failed to open %s\n", filename);
+        exit(1);
+    }
+    for(i = 0; i < nglobals; i++)
+        if(globals[i].type != STRING && strcmp(globals[i].name, "main")) {
+            fprintf(fp, "0x%.8x %s\n", resolveAddr(&globals[i]),
+                globals[i].name);
+        }
+    fclose(fp);
+}
+
+void loadGlobals(char *filename) {
+    char buf[BUFSZ];
+    FILE *fp;
+    int a;
+    if(!(fp = fopen(filename, "r"))) {
+        printf("failed to open %s\n", filename);
+        exit(1);
+    }
+    for(;;) {
+        fscanf(fp, "%s", buf);
+        if(feof(fp)) break;
+        a = value(buf);
+        fscanf(fp, "%s", buf);
+        addGlobal(buf, a, ABSOLUTE);
+        fgetc(fp);
+    }
 }
 
 int main(int argc, char **args) {
     int i;
     assert(sizeof(char) == 1);
     assert(sizeof(int) == 4);
-    char *outFile;
+    char *outFile, *globalFile, *globalOutFile;
     outFile = "a.out";
+    globalOutFile = 0;
+    globalFile = 0;
     if(argc <= 1) {
         printf("usage: %s <file1.b file2.b ...>\n", args[0]);
+        printf("  -o <file> - specify output file\n");
+        printf("  -r <addr> - specify ORG\n");
+        printf("  -g <file> - output global symbols\n");
+        printf("  -G <file> - include global symbols\n");
         return 0;
     }
     *ahead = 0;
-    /* jsr org+6 */
-    memory[nmemory++] = 0x02;
+    /* lwi pc,org+6 */
+    memory[nmemory++] = 0x9d;
     *(int*)&memory[nmemory] = org+6;
     nmemory += 4;
-    /* lbi r0,0 */
-    memory[nmemory++] = 0xb0;
-    memory[nmemory++] = 0x00;
-    /* psh r0 */
-    memory[nmemory++] = 0x70;
-    /* sys */
-    memory[nmemory++] = 0x00;
     for(i = 1; i < argc; i++) {
         if(!strcmp(args[i], "-o")) {
             if(++i < argc) outFile = args[i];
         } else if(!strcmp(args[i], "-r")) {
             if(++i < argc) org = value(args[i]);
+        } else if(!strcmp(args[i], "-g")) {
+            if(++i < argc) globalOutFile = args[i];
+        } else if(!strcmp(args[i], "-G")) {
+            if(++i < argc) globalFile = args[i];
         } else compileFile(args[i]);
     }
+    if(globalFile) loadGlobals(globalFile);
     resolveExrefs();
     i = findGlobal("main");
     if(i == -1 || globals[i].type == EXTRN) printf("no main\n");
     else *(int*)&memory[1] = globals[i].addr+org;
+    if(globalOutFile) saveGlobals(globalOutFile);
     saveFile(outFile);
     listGlobals();
+    printf("compiled %d bytes\n", nmemory+ndata+nstringBuf);
     return 0;
 }

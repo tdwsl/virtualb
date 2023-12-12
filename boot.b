@@ -21,7 +21,6 @@ findFile(filename) {
     }
     b = 0;
     sys(4, &b, 2);
-    //sys(3, &b, 4);
     return b;
 }
 
@@ -31,11 +30,9 @@ main() {
     dst = 0x1000;
     do {
         sys(7, b<<9);
-        b = 0;
-        sys(4, b, 2);
+        sys(4, &b, 2);
         sys(4, dst, 510);
         dst =+ 510;
     } while(b);
-    sys(3, 0x1000, 256);
     0x1000();
 }
