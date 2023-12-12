@@ -1451,7 +1451,7 @@ void compileStatement() {
         if(!csp) { perr(); printf("unexpected continue\n"); exit(1); }
         /* bra loop */
         memory[nmemory++] = 0x01;
-        sh(nmemory, cons[csp-1]);
+        sh(nmemory, cons[csp-1]-nmemory-2);
         nmemory += 2;
     } else if(!strcmp(ahead, "break")) {
         parseNext();
@@ -1870,6 +1870,7 @@ void loadGlobals(char *filename) {
     char buf[BUFSZ];
     FILE *fp;
     int a;
+    struct global *g;
     if(!(fp = fopen(filename, "r"))) {
         printf("failed to open %s\n", filename);
         exit(1);
@@ -1879,7 +1880,11 @@ void loadGlobals(char *filename) {
         if(feof(fp)) break;
         a = value(buf);
         fscanf(fp, "%s", buf);
-        addGlobal(buf, a, ABSOLUTE);
+        g = &globals[findGlobal(buf)];
+        if(g && g->type == EXTRN) {
+            g->type = ABSOLUTE;
+            g->addr = a;
+        }
         fgetc(fp);
     }
 }
