@@ -73,7 +73,7 @@ putc(c) {
     sys(1, c);
 }
 
-main() {
+cli() {
     auto buf[240], p, i, b;
     puts("virtualb command line*n");
     dir[dp] = 1;
@@ -88,5 +88,10 @@ main() {
             0x20000();
         } else { puts(args[0]); puts("?*n"); }
     }
+}
+
+main() {
+    cli();
+    sys(0);
 }
 

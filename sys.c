@@ -81,6 +81,7 @@ void sys() {
         break;
     case 6: regs[0] = curs; break;
     case 7: curs = pop(); break;
+    case 8: regs[0] = rand()%pop(); break;
     default:
         printf("unknown syscall %d at %.8x\n", c, regs[13]); exit(0);
     }

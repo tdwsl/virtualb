@@ -8,4 +8,5 @@ list of syscalls:
 5	disk_write(mem, size) -> size
 6	disk_pos() -> pos
 7	disk_seek(pos)
+8	random(n) -> n
 

@@ -14,6 +14,7 @@ printName(dir) {
     sys(7, dir<<9);
     sys(4, buf, 14);
     putd(buf);
+    putc('/');
     sys(7, p);
 }
 
@@ -27,7 +28,7 @@ printDir(dir) {
         for(i = 0; i < 512/16-1; i++) {
             sys(4, buf, 14);
             sys(4, &b, 2);
-            if(*buf) putd(buf);
+            if(*buf) { putd(buf); putc(' '); }
             else if(b) printName(b);
             else continue;
             x = (x+1)&3;

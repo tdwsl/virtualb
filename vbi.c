@@ -1,6 +1,8 @@
 /* virtualb interpreter */
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
 #include <string.h>
 
 #define ORG 0x20000
@@ -119,6 +121,7 @@ int main(int argc, char **args) {
         printf("usage: %s <file>\n", args[0]);
         return 0;
     }
+    srand(time(0));
     if(argc == 2) diskname = args[1];
     loadDisk();
     /* jsr ORG */

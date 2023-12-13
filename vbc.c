@@ -24,6 +24,7 @@
 #define MAXCONS 150
 #define MAXRETS 200
 #define MAXGOT 120
+#define MAXSTRINGS 200
 
 enum {
     EXTRN,
@@ -129,6 +130,8 @@ int rsp;
 char *got[MAXGOT];
 int ngot = 0;
 char *currentFunction = 0;
+int strings[MAXSTRINGS];
+int nstrings = 0;
 
 void perr() {
     printf("%s:%d: error", filename, lineNo);
@@ -415,7 +418,7 @@ int value(char *s) {
     int n;
     if(number(s, &n)) return n;
     if(!strcmp(s, "'")) return parseChar();
-    perr(); printf("expected value\n"); exit(1);
+    perr(); printf("expected value, got %s\n", s); exit(1);
 }
 
 int evalAtom() {
@@ -1014,8 +1017,8 @@ void compileCall(struct list *l) {
     }
 
     for(i = rn-1; i >= 0; i--)
-        /* psh rn */
-        memory[nmemory++] = 0x70|i;
+        /* pop rn */
+        memory[nmemory++] = 0x80|i;
 }
 
 int isAdd(int op) {
@@ -1326,10 +1329,15 @@ void beforeEof(const char *s) {
 }
 
 void skipExpr() {
+    int ng, ns;
+    ns = nstringBuf;
+    ng = nglobals;
     lookAhead();
     if(strindex(term, ahead) != -1) return;
     nlists = 0;
     listExpr();
+    nglobals = ng;
+    nstringBuf = ns;
 }
 
 void skipStatement() {
@@ -1432,7 +1440,7 @@ void compileSwitch() {
 }
 
 void compileStatement() {
-    int o, r, c;
+    int o, r;
     struct pos pos;
     lookAhead();
     if(!strcmp(ahead, "{")) {
@@ -1534,7 +1542,7 @@ void compileStatement() {
         o = nmemory;
         compileExpr();
         expect(";");
-        if(c = (o != nmemory)) {
+        if(r = (o != nmemory)) {
             /* beq r0,addr */
             memory[nmemory++] = 0xe0;
             r = nmemory;
@@ -1550,9 +1558,9 @@ void compileStatement() {
         restorePos(&pos);
         /* bra addr */
         memory[nmemory++] = 0x01;
-        sh(nmemory, o-nmemory);
+        sh(nmemory, o-nmemory-2);
+        if(r) sh(r, nmemory-r);
         nmemory += 2;
-        if(c) sh(r, nmemory-r-2);
         resolveBreaks();
     } else if(!strcmp(ahead, "switch")) {
         compileSwitch();
@@ -1711,13 +1719,14 @@ void compileFunction(char *name) {
 void compileData(char *name, char type) {
     struct global *g;
     g = addGlobal(name, ndata, type);
-    lookAhead();
     for(;;) {
         /*printf("%s\n", ahead);*/
+        lookAhead();
         if(!strcmp(ahead, "\"")) {
             *(int*)&data[ndata] = nglobals;
             parseNext();
             deferString();
+            strings[nstrings++] = ndata;
         } else *(int*)&data[ndata] = evalExpr();
         ndata += 4;
         lookAhead();
@@ -1837,6 +1846,10 @@ int resolveAddr(struct global *g) {
 void resolveExrefs() {
     int i, a;
     struct global *g;
+    for(i = 0; i < nstrings; i++) {
+        g = &globals[*(int*)&data[a=strings[i]]];
+        *(int*)&data[a] = resolveAddr(g);
+    }
     for(i = 0; i < nexrefs; i++) {
         g = &globals[*(int*)&memory[a=exrefs[i]]];
         *(int*)&memory[a] = resolveAddr(g);
