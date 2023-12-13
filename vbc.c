@@ -120,6 +120,8 @@ struct list lists[MAXLISTS];
 int nlists, rn = 0;
 int brks[MAXBRKS];
 int bsp = 0;
+int bcns[MAXBRKS];
+int bcp = 0;
 int cons[MAXCONS];
 int csp = 0;
 int rets[MAXRETS];
@@ -1211,6 +1213,11 @@ void resolveBreaks() {
     while(bsp && brks[--bsp]) sh(brks[bsp], nmemory-brks[bsp]-2);
 }
 
+void resolveContinues() {
+    while(bcp && bcns[--bcp]) sh(bcns[bcp], nmemory-bcns[bcp]-2);
+    csp--;
+}
+
 void resolveRets() {
     while(rsp--) sh(rets[rsp], nmemory-rets[rsp]-2);
 }
@@ -1425,7 +1432,7 @@ void compileSwitch() {
 }
 
 void compileStatement() {
-    int o, c;
+    int o, r, c;
     struct pos pos;
     lookAhead();
     if(!strcmp(ahead, "{")) {
@@ -1451,7 +1458,9 @@ void compileStatement() {
         if(!csp) { perr(); printf("unexpected continue\n"); exit(1); }
         /* bra loop */
         memory[nmemory++] = 0x01;
-        sh(nmemory, cons[csp-1]-nmemory-2);
+        if(cons[csp-1])
+            sh(nmemory, cons[csp-1]-nmemory-2);
+        else bcns[bcp++] = nmemory;
         nmemory += 2;
     } else if(!strcmp(ahead, "break")) {
         parseNext();
@@ -1519,15 +1528,16 @@ void compileStatement() {
         expect("(");
         compileExpr();
         expect(";");
-        cons[csp++] = nmemory;
+        cons[csp++] = 0;
         brks[bsp++] = 0;
+        bcns[bcp++] = 0;
         o = nmemory;
         compileExpr();
         expect(";");
         if(c = (o != nmemory)) {
             /* beq r0,addr */
             memory[nmemory++] = 0xe0;
-            o = nmemory;
+            r = nmemory;
             nmemory += 2;
         }
         savePos(&pos);
@@ -1535,13 +1545,14 @@ void compileStatement() {
         expect(")");
         compileStatement();
         swapPos(&pos);
+        resolveContinues();
         compileExpr();
         restorePos(&pos);
         /* bra addr */
         memory[nmemory++] = 0x01;
-        sh(nmemory, cons[--csp]-nmemory-2);
+        sh(nmemory, o-nmemory);
         nmemory += 2;
-        if(c) sh(o, nmemory-o-2);
+        if(c) sh(r, nmemory-r-2);
         resolveBreaks();
     } else if(!strcmp(ahead, "switch")) {
         compileSwitch();

@@ -122,18 +122,18 @@ int main(int argc, char **args) {
     if(argc == 2) diskname = args[1];
     loadDisk();
     /* jsr ORG */
-    memory[ORG-9] = 0x02;
-    *(int*)&memory[ORG-8] = ORG;
+    memory[0] = 0x02;
+    *(int*)&memory[1] = ORG;
     /* lbi r0,0 */
-    memory[ORG-4] = 0xb0;
-    memory[ORG-3] = 0x00;
+    memory[5] = 0xb0;
+    memory[6] = 0x00;
     /* psh r0 */
-    memory[ORG-2] = 0x70;
+    memory[7] = 0x70;
     /* sys */
-    memory[ORG-1] = 0x00;
+    memory[8] = 0x00;
     regs[15] = ORG;
     regs[14] = ORG;
-    regs[13] = ORG;
+    regs[13] = 0;
     memcpy(memory+ORG, disk, 1024);
     run();
     return 0;

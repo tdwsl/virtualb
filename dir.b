@@ -18,7 +18,7 @@ printName(dir) {
 }
 
 printDir(dir) {
-    auto i, buf[4], b, x;
+    auto i, buf[4], b, x, d;
     x = 0;
     b = 0;
     do {
