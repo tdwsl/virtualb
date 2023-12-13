@@ -33,6 +33,33 @@ findFile(dir, name) {
     return 0;
 }
 
+blockFree(dir, b) {
+    auto c, i, buf[4], p;
+    c = 0;
+    do {
+        if(dir == b) return 0;
+        sys(7, (dir<<9)+14);
+        sys(4, &dir, 2);
+        for(i = 0; i < 512/16-1; i++) {
+            sys(4, buf, 14);
+            sys(4, &c, 2);
+            if(b == c) return 0;
+            if(!*buf) {
+                p = sys(6);
+                if(!blockFree(c, b)) return 0;
+                sys(7, p);
+            }
+        }
+    } while(dir);
+    return 1;
+}
+
+findFree() {
+    auto i;
+    for(i = 2; !blockFree(i); i++);
+    return i;
+}
+
 loadFile(b, dst) {
     do {
         sys(7, b<<9);
