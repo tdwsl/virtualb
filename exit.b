@@ -6,14 +6,14 @@ messages "Be sweet, parakeet.",
     "You'll come crawling back.",
     "Don't get attacked by a bear, it's nighttime.",
     "Peace out, girl scout!",
-    "As you wish, jellyfish!",
+    "As you wish, jellyfish.",
     "See you when I see you.";
 nmessages 9;
 
 main() {
-    extrn sys, putc, puts;
-    puts(messages[sys(8, nmessages)]);
-    putc('*n');
+    extrn sys, putchar, putstr;
+    putstr(messages[sys(8, nmessages)]);
+    putchar('*n');
     sys(0);
 }
 

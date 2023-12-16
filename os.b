@@ -36,17 +36,26 @@ findFile(dir, name) {
 blockFree(dir, b) {
     auto c, i, buf[4], p;
     c = 0;
+    if(dir == b) return 0;
     do {
-        if(dir == b) return 0;
         sys(7, (dir<<9)+14);
         sys(4, &dir, 2);
+        if(dir == b) return 0;
         for(i = 0; i < 512/16-1; i++) {
             sys(4, buf, 14);
             sys(4, &c, 2);
             if(b == c) return 0;
-            if(!*buf) {
+            if(c) {
                 p = sys(6);
-                if(!blockFree(c, b)) return 0;
+                if(!*buf) {
+                    if(!blockFree(c, b)) return 0;
+                } else {
+                    do {
+                        sys(7, c<<9);
+                        sys(4, &c, 2);
+                        if(c == b) return 0;
+                    } while(c);
+                }
                 sys(7, p);
             }
         }
@@ -56,8 +65,50 @@ blockFree(dir, b) {
 
 findFree() {
     auto i;
-    for(i = 2; !blockFree(i); i++);
+    for(i = 2; !blockFree(1, i); i++);
     return i;
+}
+
+namecpy(s1, s2) {
+    extrn lchar, char;
+    auto i;
+    for(i = 0; i < 14; i++) {
+        lchar(s1, i, char(s2, i));
+        if(!char(s2, i)) break;
+    }
+}
+
+addFile(dir, name) {
+    auto i, b, buf[4];
+    b = 0;
+    for(i = 0; i < 4; i++) buf[i] = 0;
+    for(;;) {
+        sys(7, (dir<<9)+14);
+        sys(4, &dir, 2);
+        for(i = 0; i < 512/16-1; i++) {
+            sys(7, sys(6)+14);
+            sys(4, &b, 2);
+            if(!b) {
+                i = sys(6)-16;
+                b = findFree();
+                namecpy(buf, name);
+                sys(7, i);
+                sys(5, buf, 14);
+                sys(5, &b, 2);
+                return b;
+            }
+        }
+        if(!dir) {
+            b = sys(6)-512+14;
+            dir = findFree();
+            sys(7, b);
+            sys(5, &dir, 2);
+            b = 0;
+            sys(7, dir<<9);
+            for(i = 0; i < 128; i++)
+                sys(5, &b, 4);
+        }
+    }
 }
 
 loadFile(b, dst) {
@@ -90,30 +141,23 @@ next(buf) {
     return 0;
 }
 
-puts(s) {
-    auto c;
-    while(c = (*s++&0xff))
-        sys(1, c);
-}
-
-putc(c) {
-    sys(1, c);
-}
+get "put.b";
 
 cli() {
+    extrn putstr;
     auto buf[240], p, i, b;
-    puts("virtualb command line*n");
+    putstr("virtualb command line*n");
     dir[dp] = 1;
     for(;;) {
         argc = 0;
         p = buf;
-        puts(">");
+        putstr(">");
         while(!readLine(buf, 240));
         do args[argc++] = p; while(p = next(p));
         if(b = findFile(dir[dp], args[0])) {
             loadFile(b, 0x20000);
             0x20000();
-        } else { puts(args[0]); puts("?*n"); }
+        } else { putstr(args[0]); putstr("?*n"); }
     }
 }
 

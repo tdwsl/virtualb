@@ -2,7 +2,7 @@
 get "char.b";
 
 cpyd(buf, s, isdir) {
-    extrn sys, putc;
+    extrn sys, putchar;
     auto i, c;
     for(i = 0; (i < 14) & !!(c = (*s++&0xff)); i++)
         *buf++ = c;
@@ -15,11 +15,11 @@ cpyd(buf, s, isdir) {
 putd(s) {
     auto i, c;
     for(i = 0; (i < 16) & !!(c = (*s++&0xff)); i++)
-        putc(c);
+        putchar(c);
 }
 
 printName(dbuf, dir) {
-    extrn puts;
+    extrn putstr;
     auto p, buf[4];
     p = sys(6);
     sys(7, dir<<9);
@@ -67,7 +67,7 @@ printDir(dir) {
             }
     } while(*buf);
     for(i = 0; i < ndirs; i++) putd(dirs+(i<<4));
-    if(ndirs%5) putc('*n');
+    if(ndirs%5) putchar('*n');
 }
 
 main() {
