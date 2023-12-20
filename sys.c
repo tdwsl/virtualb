@@ -57,7 +57,7 @@ void sys() {
     int a, b, c;
     switch(c = pop()) {
     case 0: exit(0);
-    case 1: fputc(pop(), stdout); break;
+    case 1: if(a = pop()) fputc(a, stdout); break;
     case 2: regs[0] = fgetc(stdin); break;
     case 3: dump("dump.bin"); break;
     case 4:
@@ -77,7 +77,7 @@ void sys() {
             disk[curs++] = memory[a++];
             b--; regs[0]++;
         }
-        saveDisk(diskname);
+        saveDisk();
         break;
     case 6: regs[0] = curs; break;
     case 7: curs = pop(); break;

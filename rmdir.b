@@ -6,8 +6,8 @@ main() {
     if(argc > 1) {
         for(i = 1; i < argc; i++) {
             b = findEntry(dir, args[i]);
-            if(b&0x8000) {
-                putstr(args[i]); putstr(" is a folder*n");
+            if(!(b&0x8000)) {
+                putstr(args[i]); putstr(" is a file*n");
             } else if(b) {
                 /* delete file */
                 sys(7, sys(6)-15);
@@ -21,6 +21,6 @@ main() {
             }
         }
     } else {
-        putstr("specify files to delete*n");
+        putstr("specify folders to delete*n");
     }
 }

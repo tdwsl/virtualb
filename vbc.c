@@ -506,7 +506,10 @@ int evalExpr() {
 }
 
 void deferString() {
-    globals[nglobals++] = (struct global) { "*", nstringBuf, STRING, };
+    globals[nglobals].name = "*";
+    globals[nglobals].addr = nstringBuf;
+    globals[nglobals++].type = STRING;
+    //globals[nglobals++] = (struct global) { "*", nstringBuf, STRING, };
     parseString(&stringBuf[nstringBuf]);
     nstringBuf += strlen(&stringBuf[nstringBuf])+1;
 }
@@ -584,9 +587,9 @@ struct list *listAtom() {
     return l;
 }
 
-struct list *listPost() {
-    struct list *l, *a;
-    a = listAtom();
+struct list *listPost(struct list *a) {
+    struct list *l;
+    if(!a) a = listAtom();
     l = &lists[nlists];
     l->a = a;
     l->a->parent = l;
@@ -598,7 +601,7 @@ struct list *listPost() {
         l->type = INDEX;
         expect("]");
         l->b->parent = l;
-        return l;
+        return listPost(l);
     } else if(!strcmp(ahead, "++")) {
         parseNext();
         l->type = INC;
@@ -630,10 +633,10 @@ struct list *listPost() {
             a->parent->b = 0;
         } else l->b = 0;
         parseNext();
-        return l;
+        return listPost(l);
     } else return a;
     nlists++;
-    return l;
+    return listPost(l);
 }
 
 struct list *listUnary() {
@@ -655,7 +658,7 @@ struct list *listUnary() {
         l->type = DEREF;
     else if(!strcmp(ahead, "&"))
         l->type = POINT;
-    else { nlists--; return listPost(); }
+    else { nlists--; return listPost(0); }
     parseNext();
     l->a = listUnary();
     l->a->parent = l;
@@ -1133,7 +1136,8 @@ void compileList(struct list *l) {
         *(int*)&memory[nmemory] = l->value;
         exrefs[nexrefs++] = nmemory;
         nmemory += 4;
-        if(globals[l->value].type==DATAV || globals[l->value].type==BSSV) {
+        if(globals[l->value].type==DATAV || globals[l->value].type==BSSV
+                || globals[l->value].type == EXTRN) {
             /* ldw rn,rn */
             memory[nmemory++] = 0x05;
             memory[nmemory++] = rn<<4|rn;
@@ -1195,6 +1199,10 @@ void compileList(struct list *l) {
             /* adw rn,r1 */
             memory[nmemory++] = 0x0f;
             memory[nmemory++] = rn<<4|rn+1;
+            break;
+        case INDEX:
+            compileList(l->a);
+            nmemory -= 2;
             break;
         default:
             perr(); printf("expected lvalue\n"); exit(1);
@@ -1583,9 +1591,12 @@ struct global *addGlobal(char *name, int addr, char type) {
         globals[i].addr = addr;
         return &globals[i];
     } else {
-        globals[nglobals] = (struct global) {
+        globals[nglobals].name = nameP;
+        globals[nglobals].addr = addr;
+        globals[nglobals].type = type;
+        /*globals[nglobals] = (struct global) {
             nameP, addr, type,
-        };
+        };*/
         addName(name);
         return &globals[nglobals++];
     }
@@ -1656,6 +1667,9 @@ void compileFunction(char *name) {
                     lookAhead();
                     if(!strcmp(ahead, "(")) {
                         parseNext(); expect(")"); lookAhead();
+                    } else if(!strcmp(ahead, "[")) {
+                        parseNext(); expect("]"); lookAhead();
+                    } else {
                     }
                     if(!strcmp(ahead, ";")) break;
                     expect(",");

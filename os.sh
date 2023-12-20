@@ -5,5 +5,4 @@ sh examples.sh
 ./vbc exit.b -o exit -G os.g
 ./vbc del.b -o del -G os.g
 ./vbc copy.b -o copy -G os.g
-rm os.g
 ./diskgen os.dsk boots boot dir exit del hello beer fizz copy

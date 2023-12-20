@@ -5,10 +5,10 @@
 #include <stdlib.h>
 
 char buf[512];
-char *rootp = buf+16;
+char *rootp = buf+2;
 FILE *out;
 
-FILE *open(char *filename, const char *mode) {
+FILE *openFile(char *filename, const char *mode) {
     FILE *fp;
     if(!(fp = fopen(filename, mode))) {
         printf("failed to open %s\n", filename);
@@ -19,7 +19,7 @@ FILE *open(char *filename, const char *mode) {
 
 void saveBoot(char *filename) {
     FILE *fp;
-    fp = open(filename, "rb");
+    fp = openFile(filename, "rb");
     fread(buf, 1, 512, fp);
     fclose(fp);
     fwrite(buf, 1, 512, out);
@@ -28,7 +28,7 @@ void saveBoot(char *filename) {
 int filesz(char *filename) {
     int i;
     FILE *fp;
-    fp = open(filename, "rb");
+    fp = openFile(filename, "rb");
     fseek(fp, 0, SEEK_END);
     i = ftell(fp);
     fclose(fp);
@@ -36,15 +36,15 @@ int filesz(char *filename) {
 }
 
 void addDir(char *filename, int block) {
-    strncpy(rootp, filename, 14);
-    rootp += 14;
+    strncpy(rootp, filename, 13);
+    rootp += 13;
     *(int*)rootp = block;
     rootp += 2;
 }
 
 void saveFile(char *filename, int block, int size) {
     FILE *fp;
-    fp = open(filename, "rb");
+    fp = openFile(filename, "rb");
     do {
         if(size>1) *(int*)&buf = ++block;
         else memset(buf, 0, 512);
@@ -62,7 +62,7 @@ int main(int argc, char **args) {
         return 0;
     }
     next = 2;
-    out = open(args[1], "wb");
+    out = openFile(args[1], "wb");
     saveBoot(args[2]);
     for(i = 3; i < argc; i++) {
         blocks[i-3] = next;

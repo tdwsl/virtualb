@@ -4,7 +4,7 @@ get "sys.b";
 
 streq(a, b) {
     auto i;
-    for(i = 0; i < 14; i++) {
+    for(i = 0; i < 13; i++) {
         if((*a&0xff) != (*b++&0xff)) return 0;
         if(!(*a++&0xff)) return 1;
     }
@@ -13,9 +13,9 @@ streq(a, b) {
 
 findFile(filename) {
     auto buf[4], b;
-    sys(7, 512+16);
+    sys(7, 512+2);
     for(;;) {
-        sys(4, buf, 14);
+        sys(4, buf, 13);
         if(streq(buf, filename)) break;
         sys(4, buf, 2);
     }
