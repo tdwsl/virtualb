@@ -25,6 +25,7 @@
 #define MAXRETS 200
 #define MAXGOT 120
 #define MAXSTRINGS 200
+#define MAXCONSTANTS 400
 
 enum {
     EXTRN,
@@ -65,6 +66,11 @@ struct global {
     char *name;
     int addr;
     char type;
+};
+
+struct constant {
+    char *name;
+    int value;
 };
 
 struct list {
@@ -132,6 +138,8 @@ int ngot = 0;
 char *currentFunction = 0;
 int strings[MAXSTRINGS];
 int nstrings = 0;
+struct constant constants[MAXCONSTANTS];
+int nconstants = 0;
 
 void perr() {
     printf("%s:%d: error", filename, lineNo);
@@ -289,7 +297,9 @@ void swapPos(struct pos *p) {
     fseek(fp, ps, SEEK_SET);
 }
 
-void parseString0(char *buf) {
+int parseString0(char *buf) {
+    char *p;
+    p = buf;
     for(;;) {
         switch(*buf = nextChar()) {
         case '*':
@@ -300,14 +310,14 @@ void parseString0(char *buf) {
             case 'r': *buf = '\r'; break;
             case 't': *buf = '\t'; break;
             case 'b': *buf = '\b'; break;
-            case '0': *buf = '\0'; break;
+            case 'e': *buf = '\0'; break;
             default:
                 perr(); printf("unknown escape character %c\n", *buf); exit(1);
             }
             break;
         case '"':
             *buf = 0;
-            return;
+            return buf-p;
         case '\n':
             perr(); printf("EOL before end of string\n"); exit(1);
         default:
@@ -320,12 +330,15 @@ void parseString0(char *buf) {
     }
 }
 
-void parseString(char *buf) {
+int parseString(char *buf) {
+    int len;
+    len = 0;
     do {
-        parseString0(buf);
+        len += parseString0(buf);
         buf += strlen(buf);
         lookAhead();
     } while(!strcmp(ahead, "\""));
+    return len;
 }
 
 int number(char *s, int *n);
@@ -376,7 +389,7 @@ int number(char *s, int *n) {
     *n = 0;
     if(*s == '0') {
         if(s[1] == 'x') return hex(s+2, n);
-        else if(s[1]) return oct(s+1, n);
+        else return oct(s, n);
     }
     do {
         *n *= 10;
@@ -398,9 +411,10 @@ int parseChar() {
             case '*': c = '*'; break;
             case '\'': c = '\''; break;
             case 'n': c = '\n'; break;
+            case 'r': c = '\r'; break;
             case 't': c = '\t'; break;
             case 'b': c = '\b'; break;
-            case '0': c = '\0'; break;
+            case 'e': c = '\0'; break;
             default: perr(); printf("unknown escape char %c\n", c); exit(1);
             }
             break;
@@ -414,10 +428,18 @@ int parseChar() {
     return h;
 }
 
+int findConstant(char *s) {
+    int i;
+    for(i = 0; i < nconstants; i++)
+        if(!strcmp(constants[i].name, s)) return i;
+    return -1;
+}
+
 int value(char *s) {
     int n;
     if(number(s, &n)) return n;
     if(!strcmp(s, "'")) return parseChar();
+    if((n = findConstant(s)) != -1) return constants[n].value;
     perr(); printf("expected value, got %s\n", s); exit(1);
 }
 
@@ -500,18 +522,17 @@ int evalExpr() {
     n = evalXor();
     lookAhead();
     if(!strcmp(ahead, "|")) { parseNext(); return n|evalExpr(); }
-    if(!strcmp(ahead, "^")) { parseNext(); return n|evalExpr(); }
-    if(!strcmp(ahead, "&")) { parseNext(); return n|evalExpr(); }
     return n;
 }
 
 void deferString() {
+    int len;
     globals[nglobals].name = "*";
     globals[nglobals].addr = nstringBuf;
     globals[nglobals++].type = STRING;
     //globals[nglobals++] = (struct global) { "*", nstringBuf, STRING, };
-    parseString(&stringBuf[nstringBuf]);
-    nstringBuf += strlen(&stringBuf[nstringBuf])+1;
+    len = parseString(&stringBuf[nstringBuf]);
+    nstringBuf += len+1;
 }
 
 void addName(char *name) {
@@ -563,6 +584,9 @@ struct list *listAtom() {
     } else if((i = strnindex(args, nargs, next)) != -1) {
         l->type = ARG;
         l->value = i;
+    } else if((i = findConstant(next)) != -1) {
+        l->type = IMM;
+        l->value = constants[i].value;
     } else if((i = findGlobal(next)) != -1) {
         l->type = GLOBAL;
         l->value = i;
@@ -1761,29 +1785,6 @@ void compileOuter() {
     if(*next == 0) return;
     /*printf("%d:%s\n", lineNo, next);*/
 
-    if(!strcmp(next, "get")) {
-        for(;;) {
-            expect("\"");
-            parseString(nameP);
-            if(strnindex(got, ngot, nameP) == -1) {
-                got[ngot++] = nameP;
-                nameP += strlen(nameP)+1;
-                strcpy(name, ahead);
-                n = ac;
-                ac = 0;
-                *ahead = 0;
-                compileFile(got[ngot-1]);
-                strcpy(ahead, name);
-                ac = n;
-            }
-            lookAhead();
-            if(!strcmp(ahead, ";")) break;
-            expect(",");
-        }
-        parseNext();
-        return;
-    }
-
     strcpy(name, next);
     lookAhead();
     if(!strcmp(ahead, "[")) {
@@ -1809,6 +1810,12 @@ void compileOuter() {
     } else if(!strcmp(ahead, "(")) {
         parseNext();
         compileFunction(name);
+    } else if(!strcmp(ahead, "=")) {
+        parseNext();
+        constants[nconstants].name = nameP;
+        addName(name);
+        constants[nconstants++].value = evalExpr();
+        expect(";");
     } else {
         compileData(name, DATAV);
     }
